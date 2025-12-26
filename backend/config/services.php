@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    'github' => [
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URI', env('APP_URL').'/auth/github/callback'),
+        'guzzle' => [
+            'verify' => env('GUZZLE_CA_BUNDLE') ?: (env('CURL_CA_BUNDLE') ?: true),
+        ],
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
+        'guzzle' => [
+            'verify' => env('GUZZLE_CA_BUNDLE') ?: (env('CURL_CA_BUNDLE') ?: true),
+        ],
+    ],
+
 ];

@@ -9,6 +9,8 @@ class OAuthAccount extends Model
 {
     use HasFactory;
 
+    protected $table = 'oauth_accounts';
+
     protected $fillable = [
         'user_id',
         'provider',
@@ -31,4 +33,3 @@ class OAuthAccount extends Model
         return $this->belongsTo(User::class);
     }
 }
-

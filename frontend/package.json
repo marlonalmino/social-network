@@ -21,6 +21,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "pusher-js": "^8.4.0",
+    "laravel-echo": "^2.2.6"
   }
 }
