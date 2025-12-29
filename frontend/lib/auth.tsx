@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import { createContext, useContext, useEffect, useState } from "react";
 import { apiGet, apiPost } from "./api";
 
 export type AuthUser = {
@@ -9,7 +11,15 @@ export type AuthUser = {
   avatar_url?: string;
 };
 
-export function useAuth() {
+type AuthContextValue = {
+  status: "loading" | "authenticated" | "unauthenticated";
+  user: AuthUser | null;
+  logout: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
 
@@ -39,6 +49,18 @@ export function useAuth() {
     setStatus("unauthenticated");
   }
 
-  return { status, user, logout };
+  return <AuthContext.Provider value={{ status, user, logout }}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    return {
+      status: "loading" as const,
+      user: null,
+      logout: async () => {},
+    };
+  }
+  return ctx;
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
+import CreatePost from "@/components/CreatePost";
 
 type FeedItem = {
   id: number;
@@ -41,21 +42,11 @@ export default function DashboardPage() {
 
   return (
     <div className="grid gap-4">
-      <div className="card p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 overflow-hidden rounded-full border border-[var(--border)]">
-            {user?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-sm">
-                {user?.name?.[0] ?? "U"}
-              </div>
-            )}
-          </div>
-          <div className="text-sm text-zinc-500">O que você está pensando?</div>
-        </div>
-      </div>
+      <CreatePost
+        onCreated={(post) => {
+          setItems((prev) => [post, ...prev]);
+        }}
+      />
 
       {loading && (
         <div className="card p-4">
@@ -79,7 +70,6 @@ export default function DashboardPage() {
           <div className="mb-3 flex items-center gap-3">
             <div className="h-9 w-9 overflow-hidden rounded-full border border-[var(--border)]">
               {p.user.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.user.avatar_url} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-xs">
@@ -109,4 +99,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

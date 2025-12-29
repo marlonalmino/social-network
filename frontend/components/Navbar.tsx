@@ -2,9 +2,16 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { subscribeRealtimeNotifications } from "@/lib/realtime";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    subscribeRealtimeNotifications(user.id, () => setCount((c) => c + 1));
+  }, [user?.id]);
   return (
     <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg)]">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
@@ -17,6 +24,10 @@ export default function Navbar() {
           </Link>
           <Link href="/messages" className="text-sm text-zinc-600">
             Mensagens
+          </Link>
+          <Link href="/notifications" className="relative text-sm text-zinc-600">
+            Notificações
+            {count > 0 && <span className="absolute -right-3 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black px-1 text-xs text-white">{count}</span>}
           </Link>
           {user && (
             <>
@@ -43,4 +54,3 @@ export default function Navbar() {
     </div>
   );
 }
-
