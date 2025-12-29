@@ -23,7 +23,7 @@ export default function AuthCallbackPage() {
         if (data.authenticated) {
           setName(data.user?.name || "");
           setStatus("ok");
-          setTimeout(() => router.push("/"), 800);
+          setTimeout(() => router.push("/dashboard"), 800);
         } else {
           setStatus("error");
         }
@@ -61,4 +61,3 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
-
