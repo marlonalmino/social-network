@@ -62,7 +62,9 @@ class MessageController extends Controller
                 'metadata' => null,
             ]);
         }
-        return response()->json($msg->load('sender:id,name,username,avatar_url', 'attachments'), 201);
+        $msg->load('sender:id,name,username,avatar_url', 'attachments');
+        event(new \App\Events\MessageSent($msg));
+        return response()->json($msg, 201);
     }
 
     public function markRead(int $conversationId, Request $request)
@@ -87,6 +89,7 @@ class MessageController extends Controller
                 ['message_id' => $message->id, 'user_id' => $userId],
                 ['read_at' => now()]
             );
+            event(new \App\Events\MessageRead($conversationId, $message->id, $userId, now()->toISOString()));
         } else {
             $messages = Message::where('conversation_id', $conversationId)->pluck('id');
             foreach ($messages as $mid) {
@@ -94,9 +97,9 @@ class MessageController extends Controller
                     ['message_id' => $mid, 'user_id' => $userId],
                     ['read_at' => now()]
                 );
+                event(new \App\Events\MessageRead($conversationId, $mid, $userId, now()->toISOString()));
             }
         }
         return response()->json(['read' => true]);
     }
 }
-

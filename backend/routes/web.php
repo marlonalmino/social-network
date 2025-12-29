@@ -8,6 +8,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -42,6 +43,10 @@ Route::prefix('api')->group(function () {
 
     Route::get('tags', [TagController::class, 'index']);
     Route::get('tags/{slug}/posts', [TagController::class, 'posts']);
+
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::post('notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
 });
 
 Route::get('auth/{provider}/redirect', [AuthController::class, 'redirect']);
