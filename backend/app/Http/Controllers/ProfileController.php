@@ -8,6 +8,29 @@ use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
+    public function search(Request $request)
+    {
+        $q = trim((string) $request->query('query', ''));
+        if ($q === '') {
+            return response()->json([
+                'data' => [],
+                'current_page' => 1,
+                'per_page' => 20,
+                'total' => 0,
+            ]);
+        }
+        $perPage = min(max($request->integer('per_page', 20), 1), 50);
+        $users = User::query()
+            ->where(function ($w) use ($q) {
+                $w->where('username', 'like', '%'.$q.'%')
+                  ->orWhere('name', 'like', '%'.$q.'%');
+            })
+            ->orderByRaw('CASE WHEN username = ? THEN 0 WHEN username LIKE ? THEN 1 ELSE 2 END', [$q, $q.'%'])
+            ->orderBy('id', 'asc')
+            ->select('id', 'name', 'username', 'avatar_url')
+            ->paginate($perPage);
+        return response()->json($users);
+    }
     public function show(string $username)
     {
         $user = User::where('username', $username)->firstOrFail();
@@ -48,4 +71,3 @@ class ProfileController extends Controller
         return response()->json($user->only(['id','name','username','avatar_url','bio','location','website_url']));
     }
 }
-

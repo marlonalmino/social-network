@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { subscribeRealtimeNotifications } from "@/lib/realtime";
+import { subscribeRealtimeNotifications, subscribeUnreadCount } from "@/lib/realtime";
 import { apiGet } from "@/lib/api";
 
 export default function Navbar() {
@@ -11,24 +11,41 @@ export default function Navbar() {
   const [count, setCount] = useState(0);
   const [msgUnread, setMsgUnread] = useState(0);
   useEffect(() => {
-    if (!user?.id) return;
-    subscribeRealtimeNotifications(user.id, () => setCount((c) => c + 1));
-  }, [user?.id]);
-  useEffect(() => {
+    let cleanup: (() => void) | null = null;
     (async () => {
       try {
-        const data = await apiGet("/api/conversations/unread-count");
-        if (typeof data.unread_count === "number") setMsgUnread(data.unread_count);
+        if (!user?.id) return;
+        const base = await apiGet("/api/notifications/unread-count");
+        if (typeof base.unread_count === "number") setCount(base.unread_count);
+        const unsub = subscribeRealtimeNotifications(
+          user.id,
+          () => {},
+          (val) => setCount(val)
+        );
+        cleanup = unsub ?? null;
       } catch {}
     })();
-    const id = window.setInterval(async () => {
-      try {
-        const data = await apiGet("/api/conversations/unread-count");
-        if (typeof data.unread_count === "number") setMsgUnread(data.unread_count);
-      } catch {}
-    }, 15000);
     return () => {
-      window.clearInterval(id);
+      try {
+        cleanup?.();
+      } catch {}
+    };
+  }, [user?.id]);
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    (async () => {
+      try {
+        const base = await apiGet("/api/conversations/unread-count");
+        if (typeof base.unread_count === "number") setMsgUnread(base.unread_count);
+        const list = await apiGet("/api/conversations");
+        const ids: number[] = (list.data || []).map((c: { id: number }) => c.id);
+        cleanup = subscribeUnreadCount(user?.id, ids, setMsgUnread);
+      } catch {}
+    })();
+    return () => {
+      try {
+        cleanup?.();
+      } catch {}
     };
   }, [user?.id]);
   return (
@@ -52,6 +69,9 @@ export default function Navbar() {
           <Link href="/notifications" className="relative text-sm text-zinc-600">
             Notificações
             {count > 0 && <span className="absolute -right-3 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black px-1 text-xs text-white">{count}</span>}
+          </Link>
+          <Link href="/search" className="text-sm text-zinc-600">
+            Buscar
           </Link>
           {user && (
             <>

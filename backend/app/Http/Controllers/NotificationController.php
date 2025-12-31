@@ -19,6 +19,17 @@ class NotificationController extends Controller
         return response()->json($items);
     }
 
+    public function unreadCount(Request $request)
+    {
+        $userId = auth()->id() ?? $request->integer('user_id');
+        if (!$userId) {
+            return response()->json(['error' => 'unauthorized'], 401);
+        }
+        $user = auth()->user() ?? \App\Models\User::findOrFail($userId);
+        $count = $user->notifications()->whereNull('read_at')->count();
+        return response()->json(['unread_count' => $count]);
+    }
+
     public function markRead(string $id, Request $request)
     {
         $userId = auth()->id() ?? $request->integer('user_id');
@@ -29,6 +40,8 @@ class NotificationController extends Controller
         /** @var DatabaseNotification $n */
         $n = $user->notifications()->where('id', $id)->firstOrFail();
         $n->markAsRead();
+        $count = $user->notifications()->whereNull('read_at')->count();
+        event(new \App\Events\NotificationCountUpdated($user->id, $count));
         return response()->json(['read' => true, 'id' => $id]);
     }
 
@@ -40,7 +53,8 @@ class NotificationController extends Controller
         }
         $user = auth()->user() ?? \App\Models\User::findOrFail($userId);
         $user->unreadNotifications->markAsRead();
+        $count = $user->notifications()->whereNull('read_at')->count();
+        event(new \App\Events\NotificationCountUpdated($user->id, $count));
         return response()->json(['read_all' => true]);
     }
 }
-

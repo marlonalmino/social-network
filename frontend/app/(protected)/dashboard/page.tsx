@@ -5,6 +5,8 @@ import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import CreatePost from "@/components/CreatePost";
+import { subscribePostLikes } from "@/lib/realtime";
+import VirtualList from "@/components/VirtualList";
 
 type FeedItem = {
   id: number;
@@ -36,6 +38,8 @@ export default function DashboardPage() {
   const [replyText, setReplyText] = useState<Record<number, string>>({});
   const [viewRepliesOpen, setViewRepliesOpen] = useState<Record<number, boolean>>({});
   const [repliesMap, setRepliesMap] = useState<Record<number, FeedItem[]>>({});
+  const [repliesPage, setRepliesPage] = useState<Record<number, number>>({});
+  const [repliesHasMore, setRepliesHasMore] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     (async () => {
@@ -53,6 +57,37 @@ export default function DashboardPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const ids = items.map((p) => p.id);
+    if (ids.length === 0) return;
+    const cleanup = subscribePostLikes(
+      ids,
+      (payload) => {
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === payload.post_id ? { ...p, likes_count: payload.likes_count } : p
+          )
+        );
+        if (payload.user_id === user?.id) {
+          setLiked((prev) => ({ ...prev, [payload.post_id]: true }));
+        }
+      },
+      (payload) => {
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === payload.post_id ? { ...p, likes_count: payload.likes_count } : p
+          )
+        );
+        if (payload.user_id === user?.id) {
+          setLiked((prev) => ({ ...prev, [payload.post_id]: false }));
+        }
+      }
+    );
+    return () => {
+      cleanup();
+    };
+  }, [items.map((p) => p.id).join(","), user?.id]);
 
   async function toggleLike(postId: number) {
     const isLiked = liked[postId] === true;
@@ -114,11 +149,30 @@ export default function DashboardPage() {
     setViewRepliesOpen((prev) => ({ ...prev, [postId]: true }));
     if (!repliesMap[postId]) {
       try {
-        const data = await apiGet(`/api/posts/${postId}`);
-        const list: FeedItem[] = (data?.replies as FeedItem[]) || [];
+        const data = await apiGet(`/api/posts/${postId}/replies?per_page=10&page=1`);
+        const list: FeedItem[] = data.data || [];
         setRepliesMap((prev) => ({ ...prev, [postId]: list }));
+        setRepliesPage((prev) => ({ ...prev, [postId]: 1 }));
+        setRepliesHasMore((prev) => ({ ...prev, [postId]: list.length === 10 }));
       } catch {}
     }
+  }
+
+  async function loadMoreReplies(postId: number) {
+    const page = (repliesPage[postId] || 1) + 1;
+    try {
+      const data = await apiGet(`/api/posts/${postId}/replies?per_page=10&page=${page}`);
+      const list: FeedItem[] = data.data || [];
+      setRepliesMap((prev) => {
+        const merged = [...(prev[postId] || [])];
+        for (const r of list) {
+          if (!merged.some((x) => x.id === r.id)) merged.push(r);
+        }
+        return { ...prev, [postId]: merged };
+      });
+      setRepliesPage((prev) => ({ ...prev, [postId]: page }));
+      setRepliesHasMore((prev) => ({ ...prev, [postId]: list.length === 10 }));
+    } catch {}
   }
 
   return (
@@ -146,7 +200,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {items.map((p) => (
+      <VirtualList
+        items={items}
+        itemHeight={240}
+        height={800}
+        overscan={6}
+        renderItem={(p) => (
         <div key={p.id} className="card p-4">
           <div className="mb-3 flex items-center gap-3">
             <div className="h-9 w-9 overflow-hidden rounded-full border border-[var(--border)]">
@@ -222,48 +281,64 @@ export default function DashboardPage() {
             </div>
           )}
           {viewRepliesOpen[p.id] && (
-            <div className="mt-3 space-y-3 border-l pl-4">
+            <div className="mt-3 border-l pl-4">
               {(repliesMap[p.id] || []).length === 0 ? (
                 <div className="text-xs text-zinc-500">Sem respostas</div>
               ) : (
-                (repliesMap[p.id] || []).map((r) => (
-                  <div key={r.id} className="rounded border border-[var(--border)] p-3">
-                    <div className="mb-2 flex items-center gap-2">
-                      <div className="h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
-                        {r.user.avatar_url ? (
-                          <img src={r.user.avatar_url} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-[10px]">
-                            {r.user.name?.[0] ?? "U"}
+                <>
+                  <VirtualList
+                    items={repliesMap[p.id] || []}
+                    itemHeight={160}
+                    height={400}
+                    overscan={4}
+                    renderItem={(r) => (
+                      <div key={r.id} className="rounded border border-[var(--border)] p-3 mb-3">
+                        <div className="mb-2 flex items-center gap-2">
+                          <div className="h-7 w-7 overflow-hidden rounded-full border border-[var(--border)]">
+                            {r.user.avatar_url ? (
+                              <img src={r.user.avatar_url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-[10px]">
+                                {r.user.name?.[0] ?? "U"}
+                              </div>
+                            )}
+                          </div>
+                          <Link href={`/u/${r.user.username}`} className="text-xs font-semibold">
+                            {r.user.name}
+                          </Link>
+                          <div className="text-[11px] text-zinc-500">@{r.user.username}</div>
+                        </div>
+                        <div className="whitespace-pre-wrap text-sm">{r.content}</div>
+                        {r.tags && r.tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {r.tags.map((t) => (
+                              <Link
+                                key={t.id}
+                                href={`/tags/${t.slug}`}
+                                className="rounded-full border border-[var(--border)] px-2 py-1 text-xs text-zinc-600"
+                              >
+                                #{t.slug}
+                              </Link>
+                            ))}
                           </div>
                         )}
                       </div>
-                      <Link href={`/u/${r.user.username}`} className="text-xs font-semibold">
-                        {r.user.name}
-                      </Link>
-                      <div className="text-[11px] text-zinc-500">@{r.user.username}</div>
-                    </div>
-                    <div className="whitespace-pre-wrap text-sm">{r.content}</div>
-                    {r.tags && r.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {r.tags.map((t) => (
-                          <Link
-                            key={t.id}
-                            href={`/tags/${t.slug}`}
-                            className="rounded-full border border-[var(--border)] px-2 py-1 text-xs text-zinc-600"
-                          >
-                            #{t.slug}
-                          </Link>
-                        ))}
-                      </div>
                     )}
-                  </div>
-                ))
+                  />
+                  {repliesHasMore[p.id] && (
+                    <div className="mt-2">
+                      <button className="btn btn-outline h-8 px-3 text-sm" onClick={() => loadMoreReplies(p.id)}>
+                        Carregar mais respostas
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
-      ))}
+        )}
+      />
     </div>
   );
 }

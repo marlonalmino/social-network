@@ -8,6 +8,10 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Events\PostLiked;
+use App\Events\PostUnliked;
+use App\Notifications\PostLikedNotification;
+use App\Notifications\PostRepliedNotification;
 
 class PostController extends Controller
 {
@@ -25,6 +29,7 @@ class PostController extends Controller
                 'replies as replies_count',
             ])
             ->whereIn('user_id', $ids)
+            ->whereNull('reply_to_post_id')
             ->orderByDesc('created_at')
             ->paginate($perPage);
         $likedIds = DB::table('post_likes')->where('user_id', $userId)->pluck('post_id')->all();
@@ -118,9 +123,22 @@ class PostController extends Controller
         $perPage = min(max($request->integer('per_page', 20), 1), 50);
         $posts = Post::with(['user:id,name,username,avatar_url', 'media', 'tags'])
             ->where('user_id', $userId)
+            ->whereNull('reply_to_post_id')
             ->orderByDesc('created_at')
             ->paginate($perPage);
         return response()->json($posts);
+    }
+
+    public function repliesPaginated(int $id, Request $request)
+    {
+        $perPage = min(max($request->integer('per_page', 20), 1), 50);
+        $page = max($request->integer('page', 1), 1);
+        $post = Post::findOrFail($id);
+        $replies = $post->replies()
+            ->with(['user:id,name,username,avatar_url', 'media', 'tags'])
+            ->orderByDesc('created_at')
+            ->paginate($perPage, ['*'], 'page', $page);
+        return response()->json($replies);
     }
 
     public function like(int $id, Request $request)
@@ -131,6 +149,11 @@ class PostController extends Controller
         }
         $post = Post::findOrFail($id);
         $post->likedBy()->syncWithoutDetaching([$userId]);
+         $count = (int) $post->likedBy()->count();
+         event(new PostLiked($post->id, $userId, $count));
+        if ($post->user_id !== $userId) {
+            $post->user?->notify(new PostLikedNotification($post->id, $userId));
+        }
         return response()->json(['liked' => true]);
     }
 
@@ -142,6 +165,8 @@ class PostController extends Controller
         }
         $post = Post::findOrFail($id);
         $post->likedBy()->detach([$userId]);
+         $count = (int) $post->likedBy()->count();
+         event(new PostUnliked($post->id, $userId, $count));
         return response()->json(['liked' => false]);
     }
 
@@ -173,6 +198,9 @@ class PostController extends Controller
         }
         if ($tagIds) {
             $post->tags()->syncWithoutDetaching($tagIds);
+        }
+        if ($parent->user_id !== $userId) {
+            $parent->user?->notify(new PostRepliedNotification($parent->id, $userId, $post->id));
         }
         return response()->json($post->load('user:id,name,username,avatar_url'), 201);
     }
@@ -212,4 +240,3 @@ class PostController extends Controller
         return response()->json(['deleted' => true]);
     }
 }
-

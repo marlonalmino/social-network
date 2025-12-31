@@ -18,6 +18,7 @@ Route::prefix('api')->group(function () {
     Route::get('feed', [PostController::class, 'feed']);
     Route::post('posts', [PostController::class, 'store']);
     Route::get('posts/{id}', [PostController::class, 'show']);
+    Route::get('posts/{id}/replies', [PostController::class, 'repliesPaginated']);
     Route::get('users/{userId}/posts', [PostController::class, 'userPosts']);
     Route::post('posts/{id}/like', [PostController::class, 'like']);
     Route::post('posts/{id}/unlike', [PostController::class, 'unlike']);
@@ -40,12 +41,14 @@ Route::prefix('api')->group(function () {
     Route::post('conversations/{conversationId}/read', [MessageController::class, 'markRead']);
 
     Route::get('users/@{username}', [ProfileController::class, 'show']);
+    Route::get('users/search', [ProfileController::class, 'search']);
     Route::put('profile', [ProfileController::class, 'update']);
 
     Route::get('tags', [TagController::class, 'index']);
     Route::get('tags/{slug}/posts', [TagController::class, 'posts']);
 
     Route::get('notifications', [NotificationController::class, 'index']);
+    Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('notifications/{id}/read', [NotificationController::class, 'markRead']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
 });

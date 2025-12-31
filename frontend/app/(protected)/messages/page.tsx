@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { createEcho } from "@/lib/realtime";
+import { subscribeConversationMessages } from "@/lib/realtime";
 import { useSearchParams } from "next/navigation";
+import VirtualList from "@/components/VirtualList";
 
 type Conversation = {
   id: number;
@@ -27,10 +28,11 @@ export default function MessagesPage() {
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [body, setBody] = useState("");
-  const echoRef = useRef<ReturnType<typeof createEcho> | null>(null);
   const [seenByOther, setSeenByOther] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -62,8 +64,12 @@ export default function MessagesPage() {
     setLoadingMsgs(true);
     (async () => {
       try {
-        const data = await apiGet(`/api/conversations/${selected}/messages?per_page=50`);
-        setMessages(data.data || []);
+        const data = await apiGet(`/api/conversations/${selected}/messages?per_page=50&page=1`);
+        const list: Message[] = data.data || [];
+        list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setMessages(list);
+        setPage(1);
+        setHasMore(list.length === 50);
       } finally {
         setLoadingMsgs(false);
       }
@@ -73,38 +79,63 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!selected) return;
-    if (!echoRef.current) {
-      echoRef.current = createEcho();
-    }
-    const echo = echoRef.current!;
-    const channel = echo.channel(`conversation.${selected}`);
-    const handler = (payload: Message) => {
-      console.log("[Realtime] message.sent", payload);
-      setMessages((prev) => (prev.some((x) => x.id === payload.id) ? prev : [...prev, payload]));
-    };
-    channel.listen(".message.sent", handler);
-    const readHandler = (payload: { conversation_id: number; message_id: number; user_id: number; read_at: string }) => {
-      if (!user?.id) return;
-      if (payload.user_id !== user.id) {
-        console.log("[Realtime] message.read", payload);
-        setSeenByOther((prev) => ({ ...prev, [payload.message_id]: true }));
+    const cleanup = subscribeConversationMessages(
+      selected,
+      (payload) => {
+        const m = payload as Message;
+        setMessages((prev) => {
+          if (prev.some((x) => x.id === m.id)) return prev;
+          const next = [...prev, m];
+          next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          return next;
+        });
+      },
+      (payload) => {
+        if (!user?.id) return;
+        if (payload.user_id !== user.id) {
+          setSeenByOther((prev) => ({ ...prev, [payload.message_id]: true }));
+        }
       }
-    };
-    channel.listen(".message.read", readHandler);
+    );
     return () => {
       try {
-        channel.stopListening(".message.sent");
-        channel.stopListening(".message.read");
-        echo.leave(`conversation.${selected}`);
+        cleanup();
       } catch {}
     };
-  }, [selected]);
+  }, [selected, user?.id]);
+
+  async function loadMore() {
+    if (!selected) return;
+    const nextPage = page + 1;
+    setLoadingMsgs(true);
+    try {
+      const data = await apiGet(`/api/conversations/${selected}/messages?per_page=50&page=${nextPage}`);
+      const list: Message[] = data.data || [];
+      setMessages((prev) => {
+        const merged = [...prev];
+        for (const m of list) {
+          if (!merged.some((x) => x.id === m.id)) merged.push(m);
+        }
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return merged;
+      });
+      setPage(nextPage);
+      setHasMore(list.length === 50);
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }
 
   async function send() {
     if (!body.trim() || !selected) return;
     const msg = await apiPost(`/api/conversations/${selected}/messages`, { body });
     setBody("");
-    setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+    setMessages((prev) => {
+      if (prev.some((x) => x.id === msg.id)) return prev;
+      const next = [...prev, msg];
+      next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return next;
+    });
   }
 
   return (
@@ -152,30 +183,43 @@ export default function MessagesPage() {
             {!loadingMsgs && messages.length === 0 && (
               <div className="p-2 text-sm text-zinc-500">Sem mensagens</div>
             )}
-            <div className="space-y-3">
-              {messages.map((m) => (
-                <div key={m.id} className="flex items-start gap-3">
-                  <div className="h-8 w-8 overflow-hidden rounded-full border border-[var(--border)]">
-                    {m.sender.avatar_url ? (
-                      <img src={m.sender.avatar_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-xs">
-                        {m.sender.name?.[0] ?? "U"}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm">{m.body}</div>
-                    <div className="mt-1 text-xs text-zinc-500">{new Date(m.created_at).toLocaleString()}</div>
-                    {user?.id === m.sender.id && (
-                      <div className="mt-1 text-[11px] text-zinc-500">
-                        {seenByOther[m.id] ? "Visto" : "Entregue"}
-                      </div>
-                    )}
+            <VirtualList
+              items={messages}
+              itemHeight={80}
+              height={480}
+              overscan={6}
+              renderItem={(m) => (
+                <div key={m.id} className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 overflow-hidden rounded-full border border-[var(--border)]">
+                      {m.sender.avatar_url ? (
+                        <img src={m.sender.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-zinc-200 text-xs">
+                          {m.sender.name?.[0] ?? "U"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm">{m.body}</div>
+                      <div className="mt-1 text-xs text-zinc-500">{new Date(m.created_at).toLocaleString()}</div>
+                      {user?.id === m.sender.id && (
+                        <div className="mt-1 text-[11px] text-zinc-500">
+                          {seenByOther[m.id] ? "Visto" : "Entregue"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            />
+            {hasMore && (
+              <div className="mt-3">
+                <button className="btn btn-outline h-8 px-3 text-sm" onClick={loadMore} disabled={loadingMsgs}>
+                  Carregar mais
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="mt-3 flex gap-2">

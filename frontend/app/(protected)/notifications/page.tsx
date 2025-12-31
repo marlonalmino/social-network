@@ -34,7 +34,7 @@ export default function NotificationsPage() {
     if (!user?.id) return;
     subscribeRealtimeNotifications(user.id, (payload) => {
       const n = payload as NotificationItem;
-      setItems((prev) => [n, ...prev]);
+      setItems((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
     });
   }, [user?.id]);
 
@@ -51,15 +51,18 @@ export default function NotificationsPage() {
   function getText(d: unknown): string {
     if (d && typeof d === "object") {
       const obj = d as Record<string, unknown>;
+      const type = typeof obj.type === "string" ? obj.type : "";
+      if (type === "post_liked") {
+        return "Seu post recebeu uma curtida";
+      }
+      if (type === "post_replied") {
+        return "Seu post recebeu uma resposta";
+      }
       const c = obj.text ?? obj.message ?? obj.title;
       if (typeof c === "string") return c;
     }
     if (typeof d === "string") return d;
-    try {
-      return JSON.stringify(d);
-    } catch {
-      return "";
-    }
+    return "";
   }
 
   return (
@@ -94,8 +97,8 @@ export default function NotificationsPage() {
           <div key={n.id} className="card p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col">
-                <div className="text-sm font-semibold">{n.type.split("\\").pop()}</div>
-                <div className="text-sm text-zinc-600">{text}</div>
+                <div className="text-sm font-semibold">{text || "Notificação"}</div>
+                {!text ? null : <div className="text-sm text-zinc-600">{text}</div>}
                 <div className="mt-1 text-xs text-zinc-500">{new Date(n.created_at).toLocaleString()}</div>
               </div>
               {!n.read_at ? (
