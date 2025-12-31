@@ -20,9 +20,18 @@ class PostController extends Controller
         $ids = DB::table('follows')->where('follower_id', $userId)->pluck('followed_id')->push($userId)->all();
         $perPage = min(max($request->integer('per_page', 20), 1), 50);
         $posts = Post::with(['user:id,name,username,avatar_url', 'media', 'tags'])
+            ->withCount([
+                'likedBy as likes_count',
+                'replies as replies_count',
+            ])
             ->whereIn('user_id', $ids)
             ->orderByDesc('created_at')
             ->paginate($perPage);
+        $likedIds = DB::table('post_likes')->where('user_id', $userId)->pluck('post_id')->all();
+        $posts->getCollection()->transform(function (Post $p) use ($likedIds) {
+            $p->setAttribute('liked', in_array($p->id, $likedIds, true));
+            return $p;
+        });
         return response()->json($posts);
     }
 
@@ -57,7 +66,17 @@ class PostController extends Controller
             'repost_of_post_id' => $data['repost_of_post_id'] ?? null,
         ]);
         $tagIds = [];
-        foreach (($data['tags'] ?? []) as $name) {
+        $inputTags = collect($data['tags'] ?? [])->filter()->map(function ($t) {
+            return is_string($t) ? $t : (string) $t;
+        })->all();
+        preg_match_all('/#([A-Za-z0-9_]{1,64})/', $post->content, $hm);
+        $foundTags = collect($hm[1] ?? [])->map(fn($s) => (string) $s)->all();
+        $allTags = collect(array_merge($inputTags, $foundTags))
+            ->map(fn($t) => trim($t))
+            ->filter()
+            ->unique()
+            ->values();
+        foreach ($allTags as $name) {
             $slug = Str::slug($name);
             $tag = Tag::firstOrCreate(['slug' => $slug], ['name' => $name]);
             $tagIds[] = $tag->id;
@@ -144,6 +163,17 @@ class PostController extends Controller
             'visibility' => $data['visibility'] ?? 'public',
             'reply_to_post_id' => $parent->id,
         ]);
+        $tagIds = [];
+        preg_match_all('/#([A-Za-z0-9_]{1,64})/', $post->content, $hm);
+        $foundTags = collect($hm[1] ?? [])->map(fn($s) => (string) $s)->unique()->values();
+        foreach ($foundTags as $name) {
+            $slug = Str::slug($name);
+            $tag = Tag::firstOrCreate(['slug' => $slug], ['name' => $name]);
+            $tagIds[] = $tag->id;
+        }
+        if ($tagIds) {
+            $post->tags()->syncWithoutDetaching($tagIds);
+        }
         return response()->json($post->load('user:id,name,username,avatar_url'), 201);
     }
 

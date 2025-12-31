@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Message;
 use App\Models\Conversation;
 use App\Models\MessageRead;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MessageController extends Controller
 {
@@ -63,6 +65,7 @@ class MessageController extends Controller
             ]);
         }
         $msg->load('sender:id,name,username,avatar_url', 'attachments');
+        Log::info('Broadcasting message.sent', ['conversation_id' => $msg->conversation_id, 'message_id' => $msg->id, 'sender_id' => $msg->sender_id]);
         event(new \App\Events\MessageSent($msg));
         return response()->json($msg, 201);
     }
@@ -85,18 +88,20 @@ class MessageController extends Controller
         if ($data['message_id'] ?? null) {
             $msgId = (int) $data['message_id'];
             $message = Message::where('conversation_id', $conversationId)->where('id', $msgId)->firstOrFail();
-            MessageRead::updateOrCreate(
+            DB::table('message_reads')->updateOrInsert(
                 ['message_id' => $message->id, 'user_id' => $userId],
-                ['read_at' => now()]
+                ['read_at' => now(), 'updated_at' => now(), 'created_at' => now()]
             );
+            Log::info('Broadcasting message.read (single)', ['conversation_id' => $conversationId, 'message_id' => $message->id, 'reader_id' => $userId]);
             event(new \App\Events\MessageRead($conversationId, $message->id, $userId, now()->toISOString()));
         } else {
             $messages = Message::where('conversation_id', $conversationId)->pluck('id');
             foreach ($messages as $mid) {
-                MessageRead::updateOrCreate(
+                DB::table('message_reads')->updateOrInsert(
                     ['message_id' => $mid, 'user_id' => $userId],
-                    ['read_at' => now()]
+                    ['read_at' => now(), 'updated_at' => now(), 'created_at' => now()]
                 );
+                Log::info('Broadcasting message.read (bulk)', ['conversation_id' => $conversationId, 'message_id' => $mid, 'reader_id' => $userId]);
                 event(new \App\Events\MessageRead($conversationId, $mid, $userId, now()->toISOString()));
             }
         }

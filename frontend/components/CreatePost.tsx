@@ -23,15 +23,22 @@ type CreatedPost = {
 
 export default function CreatePost({ onCreated }: { onCreated: (post: CreatedPost) => void }) {
   const [content, setContent] = useState("");
+  const [hashtags, setHashtags] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit() {
     if (!content.trim()) return;
     setLoading(true);
     try {
-      const post = await apiPost("/api/posts", { content });
+      const tags = hashtags
+        .split(/[,\s]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+        .map((t) => (t.startsWith("#") ? t.slice(1) : t));
+      const post = await apiPost("/api/posts", { content, tags });
       onCreated(post);
       setContent("");
+      setHashtags("");
     } finally {
       setLoading(false);
     }
@@ -46,6 +53,15 @@ export default function CreatePost({ onCreated }: { onCreated: (post: CreatedPos
         onChange={(e) => setContent(e.target.value)}
         maxLength={500}
       />
+      <div className="mt-2">
+        <input
+          className="input"
+          placeholder="Hashtags (ex.: #dev #laravel) — opcional"
+          value={hashtags}
+          onChange={(e) => setHashtags(e.target.value)}
+        />
+        <div className="mt-1 text-xs text-zinc-500">Você também pode usar # diretamente no conteúdo</div>
+      </div>
       <div className="mt-3 flex justify-end">
         <button className="btn btn-primary" onClick={submit} disabled={loading}>
           {loading ? "Publicando..." : "Publicar"}

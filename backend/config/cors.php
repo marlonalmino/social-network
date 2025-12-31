@@ -4,6 +4,7 @@ return [
     'paths' => [
         'api/*',
         'auth/*',
+        'broadcasting/*',
     ],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
@@ -15,4 +16,3 @@ return [
     'max_age' => 0,
     'supports_credentials' => true,
 ];
-

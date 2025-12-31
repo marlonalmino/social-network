@@ -2,12 +2,12 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageRead implements ShouldBroadcast
+class MessageRead implements ShouldBroadcastNow
 {
     use Dispatchable, SerializesModels;
 
@@ -21,7 +21,7 @@ class MessageRead implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('conversation.'.$this->conversationId)];
+        return [new Channel('conversation.'.$this->conversationId)];
     }
 
     public function broadcastAs(): string
@@ -39,4 +39,3 @@ class MessageRead implements ShouldBroadcast
         ];
     }
 }
-

@@ -4,13 +4,32 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { subscribeRealtimeNotifications } from "@/lib/realtime";
+import { apiGet } from "@/lib/api";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [count, setCount] = useState(0);
+  const [msgUnread, setMsgUnread] = useState(0);
   useEffect(() => {
     if (!user?.id) return;
     subscribeRealtimeNotifications(user.id, () => setCount((c) => c + 1));
+  }, [user?.id]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiGet("/api/conversations/unread-count");
+        if (typeof data.unread_count === "number") setMsgUnread(data.unread_count);
+      } catch {}
+    })();
+    const id = window.setInterval(async () => {
+      try {
+        const data = await apiGet("/api/conversations/unread-count");
+        if (typeof data.unread_count === "number") setMsgUnread(data.unread_count);
+      } catch {}
+    }, 15000);
+    return () => {
+      window.clearInterval(id);
+    };
   }, [user?.id]);
   return (
     <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg)]">
@@ -22,8 +41,13 @@ export default function Navbar() {
           <Link href="/dashboard" className="text-sm text-zinc-600">
             Feed
           </Link>
-          <Link href="/messages" className="text-sm text-zinc-600">
+          <Link href="/messages" className="relative text-sm text-zinc-600">
             Mensagens
+            {msgUnread > 0 && (
+              <span className="absolute -right-3 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-black px-1 text-xs text-white">
+                {msgUnread}
+              </span>
+            )}
           </Link>
           <Link href="/notifications" className="relative text-sm text-zinc-600">
             Notificações

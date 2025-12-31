@@ -2,13 +2,13 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Queue\SerializesModels;
 
-class NotificationCreated implements ShouldBroadcast
+class NotificationCreated implements ShouldBroadcastNow
 {
     use Dispatchable, SerializesModels;
 
@@ -18,7 +18,7 @@ class NotificationCreated implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        return [new PrivateChannel('App.Models.User.'.$this->notification->notifiable_id)];
+        return [new Channel('App.Models.User.'.$this->notification->notifiable_id)];
     }
 
     public function broadcastAs(): string
@@ -37,4 +37,3 @@ class NotificationCreated implements ShouldBroadcast
         ];
     }
 }
-

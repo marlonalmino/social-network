@@ -65,5 +65,19 @@ class ConversationController extends Controller
         }
         return response()->json($conv);
     }
-}
 
+    public function unreadCount(Request $request)
+    {
+        $userId = auth()->id() ?? $request->integer('user_id');
+        if (!$userId) {
+            return response()->json(['error' => 'unauthorized'], 401);
+        }
+        $count = \App\Models\Message::whereHas('conversation', function ($q) use ($userId) {
+                $q->whereHas('participants', fn($qq) => $qq->where('users.id', $userId));
+            })
+            ->where('sender_id', '!=', $userId)
+            ->whereDoesntHave('reads', fn($q) => $q->where('user_id', $userId))
+            ->count();
+        return response()->json(['unread_count' => $count]);
+    }
+}

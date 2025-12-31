@@ -32,7 +32,8 @@ Route::prefix('api')->group(function () {
 
     Route::get('conversations', [ConversationController::class, 'index']);
     Route::post('conversations', [ConversationController::class, 'store']);
-    Route::get('conversations/{id}', [ConversationController::class, 'show']);
+    Route::get('conversations/unread-count', [ConversationController::class, 'unreadCount']);
+    Route::get('conversations/{id}', [ConversationController::class, 'show'])->whereNumber('id');
 
     Route::get('conversations/{conversationId}/messages', [MessageController::class, 'index']);
     Route::post('conversations/{conversationId}/messages', [MessageController::class, 'store']);
