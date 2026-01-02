@@ -263,13 +263,14 @@ export default function DashboardPage() {
             </button>
           </div>
           {replyOpen[p.id] && (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex items-center gap-2">
               <textarea
                 className="input h-20 flex-1"
                 placeholder="Escreva uma resposta"
                 value={replyText[p.id] || ""}
                 onChange={(e) => setReplyText((prev) => ({ ...prev, [p.id]: e.target.value }))}
                 maxLength={500}
+                style={{ lineHeight: "5rem" }}
               />
               <button
                 className="btn btn-primary"

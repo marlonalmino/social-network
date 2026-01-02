@@ -6,9 +6,10 @@ type Props<T> = {
   height: number;
   overscan?: number;
   renderItem: (item: T, index: number) => React.ReactNode;
+  onScroll?: (scrollTop: number) => void;
 };
 
-export default function VirtualList<T>({ items, itemHeight, height, overscan = 5, renderItem }: Props<T>) {
+export default function VirtualList<T>({ items, itemHeight, height, overscan = 5, renderItem, onScroll }: Props<T>) {
   const [scrollTop, setScrollTop] = useState(0);
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
   const visibleCount = Math.ceil(height / itemHeight) + overscan * 2;
@@ -17,7 +18,16 @@ export default function VirtualList<T>({ items, itemHeight, height, overscan = 5
   const totalHeight = items.length * itemHeight;
 
   return (
-    <div style={{ height, overflowY: "auto" }} onScroll={(e) => setScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}>
+    <div
+      style={{ height, overflowY: "auto" }}
+      onScroll={(e) => {
+        const st = (e.currentTarget as HTMLDivElement).scrollTop;
+        setScrollTop(st);
+        try {
+          onScroll?.(st);
+        } catch {}
+      }}
+    >
       <div style={{ height: totalHeight, position: "relative" }}>
         <div style={{ transform: `translateY(${topPad}px)` }}>
           {items.slice(startIndex, endIndex).map((item, i) => renderItem(item, startIndex + i))}
@@ -26,4 +36,3 @@ export default function VirtualList<T>({ items, itemHeight, height, overscan = 5
     </div>
   );
 }
-

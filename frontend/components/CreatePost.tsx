@@ -52,6 +52,7 @@ export default function CreatePost({ onCreated }: { onCreated: (post: CreatedPos
         value={content}
         onChange={(e) => setContent(e.target.value)}
         maxLength={500}
+        style={{ display: "flex", alignItems: "center"}}
       />
       <div className="mt-2">
         <input
