@@ -10,6 +10,7 @@ use App\Models\Post;
 use App\Models\PostMedia;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 
 class SocialSeeder extends Seeder
 {
@@ -100,6 +101,32 @@ class SocialSeeder extends Seeder
                 foreach ($likers as $lid) {
                     $post->likedBy()->syncWithoutDetaching([$lid]);
                 }
+
+                $replyCount = random_int(0, 3);
+                for ($r = 0; $r < $replyCount; $r++) {
+                    $replier = $users->where('id', '!=', $u->id)->random();
+                    $rContent = collect([
+                        'Concordo com os pontos apresentados!',
+                        'Ótimo insight, vale testar em produção.',
+                        'Tenho usado isso com sucesso no dia a dia.',
+                        'Uma dica: monitore métricas de tempo de query.',
+                        'Excelente! Compartilhando com o time.',
+                    ])->random();
+                    $reply = Post::create([
+                        'user_id' => $replier->id,
+                        'content' => $rContent,
+                        'visibility' => 'public',
+                        'reply_to_post_id' => $post->id,
+                    ]);
+                    if (random_int(0, 1)) {
+                        $replyTags = $tags->shuffle()->take(1)->pluck('id')->all();
+                        $reply->tags()->sync($replyTags);
+                    }
+                    $replyLikers = $users->where('id', '!=', $replier->id)->shuffle()->take(random_int(0, 4))->pluck('id')->all();
+                    foreach ($replyLikers as $rlid) {
+                        $reply->likedBy()->syncWithoutDetaching([$rlid]);
+                    }
+                }
             }
         }
 
@@ -124,6 +151,44 @@ class SocialSeeder extends Seeder
                     'sender_id' => $sender->id,
                     'body' => 'Mensagem '.($i + 1).' sobre tecnologias',
                 ]);
+            }
+        }
+
+        for ($g = 0; $g < 2; $g++) {
+            $groupMembers = $users->shuffle()->take(random_int(3, 5))->values();
+            if ($groupMembers->count() < 3) {
+                continue;
+            }
+            $creator = $groupMembers->first();
+            $conv = Conversation::create([
+                'type' => 'group',
+                'title' => 'Projeto Realtime '.($g + 1),
+                'creator_id' => $creator->id,
+            ]);
+            $conv->participants()->sync($groupMembers->pluck('id')->all());
+            for ($i = 0; $i < 6; $i++) {
+                $sender = $groupMembers->get($i % $groupMembers->count());
+                $msg = Message::create([
+                    'conversation_id' => $conv->id,
+                    'sender_id' => $sender->id,
+                    'body' => collect([
+                        'Alinhando arquitetura com Reverb e Echo',
+                        'Definindo contratos de eventos e canais',
+                        'Testando latência e reconexão',
+                        'Ajustando layout e responsividade',
+                        'Publicando preview para validação',
+                    ])->random(),
+                ]);
+                if (random_int(0, 1)) {
+                    MessageAttachment::create([
+                        'message_id' => $msg->id,
+                        'type' => 'image',
+                        'url' => 'https://picsum.photos/seed/message-'.$msg->id.'/640/360',
+                        'mime_type' => 'image/jpeg',
+                        'size_bytes' => random_int(50_000, 300_000),
+                        'metadata' => ['caption' => 'Mock de tela do projeto'],
+                    ]);
+                }
             }
         }
     }
