@@ -122,6 +122,37 @@ npm run dev
 - For OAuth, ensure redirect URIs match values in `backend/.env` (`/auth/{provider}/callback`) and app settings at the providers.
 - If migrations fail, confirm Postgres credentials and permissions in `psql`.
 
+**Preview**
+- OAuth Login
+  
+  ![OAuth Login](./image-oauth2.png)
+
+  Sign in with GitHub or Google. After authentication, the session is created and redirected to the frontend callback.
+
+- Feed — Posts and Tags
+  
+  ![Feed](./image-feed.png)
+
+  Streamed feed with posts, tags, like/unlike, reply preview and counters. Works with real-time updates via Reverb.
+
+- Feed — Replies Thread
+  
+  ![Feed with Replies](./image-feed-reply.png)
+
+  Expanded replies with author avatars, tags and pagination.
+
+- Messages — Direct Chat
+  
+  ![Messages](./image-messages.png)
+
+  Direct conversations with delivery status and optional media attachments.
+
+- Profile
+  
+  ![Profile](./image-profile.png)
+
+  Public profile with counts (followers, following, posts) and latest posts.
+
 ---
 
 ## Português
@@ -229,4 +260,35 @@ npm run dev
 - Se o Echo não conectar, verifique variáveis `REVERB_*` e `NEXT_PUBLIC_REVERB_*` e se o servidor Reverb está ativo.
 - Para OAuth, confirme URIs de retorno no `.env` e nas configurações dos provedores.
 - Em falhas de migração, confira credenciais e permissões no Postgres.
+
+**Preview**
+- Login com OAuth
+  
+  ![Login com OAuth](./image-oauth2.png)
+
+  Autenticação via GitHub ou Google; após login, a sessão é criada e o usuário é redirecionado ao frontend.
+
+- Feed — Posts e Tags
+  
+  ![Feed](./image-feed.png)
+
+  Feed com posts, tags, curtir/descurtir, prévia de respostas e contadores. Atualizações em tempo real com Reverb.
+
+- Feed — Thread de Respostas
+  
+  ![Feed com Respostas](./image-feed-reply.png)
+
+  Respostas expandidas com avatar, tags e paginação.
+
+- Mensagens — Conversa Direta
+  
+  ![Mensagens](./image-messages.png)
+
+  Conversas diretas com status de entrega e anexos de mídia opcionais.
+
+- Perfil
+  
+  ![Perfil](./image-profile.png)
+
+  Perfil público com contagens (seguidores, seguindo, posts) e últimos posts.
 
